@@ -1,0 +1,104 @@
+package SON;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.ArrayList; 
+import java.util.Arrays; 
+import java.util.Collections;
+import java.util.regex.*;
+
+public class SON$APMapper1
+    extends Mapper<LongWritable, Text, Text, IntWritable>{
+		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+			Configuration conf = context.getConfiguration();
+			long FILESIZEs = key.get();
+			int s = (int) (conf.getDouble("THRESHOLD", 0) * FILESIZEs);
+			int SS = conf.getInt("KTUPLE", 2);
+			String[] lines = value.toString().split("\\n");
+			TreeMap<String, Integer> singletons = new TreeMap<String, Integer>();
+			ArrayList<TreeSet<Integer>> transactions = new ArrayList<TreeSet<Integer>>();
+			TreeMap<Integer, TreeMap<String, Integer>> freqsets = new TreeMap<Integer, TreeMap<String, Integer>>();
+
+			for(String l : lines){
+				String[] items = l.split(" ");
+				TreeSet<Integer> transaction = new TreeSet<Integer>();
+				for(String i : items){
+					transaction.add(Integer.parseInt(i));
+					if(singletons.get(i) == null)singletons.put(i, 1);
+					else singletons.put(i, singletons.get(i) + 1);
+				}
+				transactions.add(transaction);
+			}
+			
+			for(Iterator<Entry<String, Integer>> it = singletons.entrySet().iterator(); it.hasNext(); ) {
+				Entry<String, Integer> e = it.next();
+				if(e.getValue() < s){
+					it.remove();
+				}
+			}
+			
+			freqsets.put(1, singletons);
+			
+			for(int i=2; i<=SS; i++){
+				TreeMap<String, Integer> newfreq = new TreeMap<String, Integer>();
+				for(String s1 : freqsets.get(i-1).keySet()){
+					int j = i - 2;
+					if(i == 2)j = 1;
+					//generate k-tuple using k-1 & k-2 tuple
+					for(String s2 : freqsets.get(j).keySet()){
+						//convert String to Set first
+						TreeSet<Integer> newset = new TreeSet<Integer>();
+						String news = "";
+						String[] items1 = s1.split(",");
+						String[] items2 = s2.split(",");
+						for(String s3 : items1){
+							newset.add(Integer.parseInt(s3));
+						}
+						for(String s4 : items2){
+							newset.add(Integer.parseInt(s4));
+						}
+						if(newset.size() == i){
+							for(Integer e : newset){
+								news += Integer.toString(e) + ",";
+							}
+							newfreq.put(news.substring(0, news.length()-1), 0);
+						}
+					}
+				}
+
+				for(String p : newfreq.keySet()){
+					String[] items = p.split(",");
+					TreeSet<Integer> freqset = new TreeSet<Integer>();
+					for(String s1 : items){
+						freqset.add(Integer.parseInt(s1));
+					}
+					for(TreeSet<Integer> b : transactions){
+						if(b.containsAll(freqset))newfreq.put(p, newfreq.get(p) + 1);
+					}
+				}	
+
+				for(Iterator<Entry<String, Integer>> it = newfreq.entrySet().iterator(); it.hasNext(); ) {
+					Entry<String, Integer> e = it.next();
+					if(e.getValue() < s){
+						it.remove();
+					}
+				}	
+				
+				if(newfreq.size() == 0)break;
+				freqsets.put(i, newfreq);
+			}
+			
+			for(TreeMap<String, Integer> e1 : freqsets.values()){
+				for (Entry<String, Integer> e2 : e1.entrySet()){
+					Text item = new Text(e2.getKey());
+					IntWritable count = new IntWritable(e2.getValue());
+					context.write(item, count);
+				}
+			}
+		}
+	}

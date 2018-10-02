@@ -1,0 +1,66 @@
+package SON;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.ArrayList; 
+import java.util.Arrays; 
+import java.util.Collections;
+import java.util.regex.*;
+
+public class SON$APMapper2
+    extends Mapper<LongWritable, Text, Text, IntWritable>{
+		private TreeMap<String, Integer> freqsets = new TreeMap<String, Integer>();
+		
+		@Override
+		public void setup(Context context) throws IOException {
+			Configuration conf = context.getConfiguration();
+			FileSystem hdfs = FileSystem.get(conf);
+			FileStatus[] status = hdfs.listStatus(new Path(conf.get("PATH"))); 
+			//parse candidate itemsets
+			for (int i=0;i<status.length;i++){
+				String filepath = status[i].getPath().toString();
+				if (filepath.matches("(.*)part-(.*)")) {
+					FSDataInputStream inStream = hdfs.open(status[i].getPath());
+					BufferedReader in = new BufferedReader(new InputStreamReader(inStream, "UTF-8"));
+					String line;
+					while ((line = in.readLine()) != null){ 
+						String values[] = line.split("\t");
+						freqsets.put(values[0], 0);
+					}
+					in.close();
+					inStream.close();
+				}
+			}			
+		}
+
+		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+			String[] lines = value.toString().split("\\n");			
+			TreeMap<Integer, Integer> singletons = new TreeMap<Integer, Integer>();
+			for(String l : lines){
+				//convert String to Set
+				String[] items = l.split(" ");
+				TreeSet<String> transaction = new TreeSet<String>();
+				for(String i : items){
+					transaction.add(i);
+				}
+				
+				//count candidate itemsets in all files
+				for(String p : freqsets.keySet()){
+					String[] freqitems = p.split(",");
+					TreeSet<String> freqset = new TreeSet<String>(Arrays.asList(freqitems));
+					if(transaction.containsAll(freqset))freqsets.put(p, freqsets.get(p) + 1);
+				}
+			}		
+			
+			for (Entry<String, Integer> e : freqsets.entrySet()){
+				Text item = new Text(e.getKey());
+				IntWritable count = new IntWritable(e.getValue());
+				if(e.getValue() > 0)context.write(item, count);
+			}
+		}
+	}

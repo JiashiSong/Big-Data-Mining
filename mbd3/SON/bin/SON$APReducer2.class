@@ -1,0 +1,27 @@
+package SON;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.ArrayList; 
+import java.util.Arrays; 
+import java.util.Collections;
+import java.util.regex.*;
+
+public class SON$APReducer2
+    extends Reducer<Text, IntWritable, Text, IntWritable> {
+		public void reduce(Text key, Iterable<IntWritable> values,	Context context	) throws IOException, InterruptedException {	
+			Configuration conf = context.getConfiguration();
+			//careful when threshold is not an Integer
+			int s = (int) (conf.getDouble("THRESHOLD", 0) * (conf.getInt("FILESIZE", 0) - 1)) + 1;
+			int sum = 0;
+			for (IntWritable val : values){
+				sum += val.get();
+			}
+			if(sum >= s)context.write(key, new IntWritable(sum));
+		}
+	}
