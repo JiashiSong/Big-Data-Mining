@@ -1,4 +1,6 @@
-Li Chun Wai 1656703    a1656703@student.adelaide.edu.auJiashi Song 1674364    a1674364@student.adelaide.edu.au
+
+Li Chun Wai 
+Jiashi Song 
 
 Simple random algorithm
 Eclipse: 
